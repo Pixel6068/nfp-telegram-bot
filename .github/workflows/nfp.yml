@@ -54,7 +54,7 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        if: steps.check_friday.outputs.should_run == 'true'   # NFP里保留这行，CPI里删掉
+        if: steps.check_friday.outputs.should_run == 'true'
         run: pip install -r requirements.txt
 
       - name: Verify required secrets
