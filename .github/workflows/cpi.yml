@@ -68,8 +68,8 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          MSG="🚨 *CPI workflow 失败* | 日志: $RUN_URL"
           curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
             -d chat_id="$TELEGRAM_CHAT_ID" \
             -d parse_mode=Markdown \
-            --data-urlencode "text=🚨 *CPI workflow 失败*
-查看日志: $RUN_URL" || true
+            --data-urlencode "text=$MSG" || true
