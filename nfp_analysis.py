@@ -15,6 +15,7 @@ def get_nfp_data():
         "registrationkey": BLS_API_KEY
     }
     r = requests.post(url, json=payload)
+    print("BLS 返回：", r.json())
     series = r.json()["Results"]["series"][0]["data"]
     latest = series[0]
     prev = series[1]
@@ -33,14 +34,33 @@ def gemini_interpret(data):
     - 环比变化：{data['change']} 千人
     
     请用中文从以下角度简洁解读（300字内）：
-    1. 数据强弱判断（与市场预期对比）
+    1. 数据强弱判断
     2. 对美联储货币政策的影响
     3. 对美股、美元指数的短期影响方向
     """
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key={GEMINI_API_KEY}"
     r = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]})
     result = r.json()
-    print("Gemini 返回：", result)  # 调试用
+    print("Gemini 返回：", result)
     if "candidates" not in result:
         raise Exception(f"Gemini API 错误: {result.get('error', result)}")
     return result["candidates"][0]["content"]["parts"][0]["text"]
+
+def send_telegram(text):
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    r = requests.post(url, json={
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": text,
+        "parse_mode": "Markdown"
+    })
+    print("Telegram 返回：", r.json())
+
+if __name__ == "__main__":
+    print("开始运行...")
+    data = get_nfp_data()
+    print("非农数据：", data)
+    analysis = gemini_interpret(data)
+    print("Gemini 解读完成")
+    msg = f"📊 *美国非农就业数据解读*\n\n{analysis}"
+    send_telegram(msg)
+    print("推送成功")
