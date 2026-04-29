@@ -20,3 +20,6 @@ jobs:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LAST_NFP_STATUS: ${{ vars.LAST_NFP_STATUS }}
+          LAST_CPI_STATUS: ${{ vars.LAST_CPI_STATUS }}
