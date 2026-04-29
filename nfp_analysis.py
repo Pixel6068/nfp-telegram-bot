@@ -37,21 +37,10 @@ def gemini_interpret(data):
     2. 对美联储货币政策的影响
     3. 对美股、美元指数的短期影响方向
     """
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_API_KEY}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key={GEMINI_API_KEY}"
     r = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]})
-    return r.json()["candidates"][0]["content"]["parts"][0]["text"]
-
-def send_telegram(text):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    requests.post(url, json={
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": text,
-        "parse_mode": "Markdown"
-    })
-
-if __name__ == "__main__":
-    data = get_nfp_data()
-    analysis = gemini_interpret(data)
-    msg = f"📊 *美国非农就业数据解读*\n\n{analysis}"
-    send_telegram(msg)
-    print("推送成功")
+    result = r.json()
+    print("Gemini 返回：", result)  # 调试用
+    if "candidates" not in result:
+        raise Exception(f"Gemini API 错误: {result.get('error', result)}")
+    return result["candidates"][0]["content"]["parts"][0]["text"]
