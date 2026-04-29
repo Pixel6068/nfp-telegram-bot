@@ -2,25 +2,97 @@ name: NFP Analysis
 
 on:
   schedule:
-    # 每月第一个周五 8:35 ET（即 UTC 13:35）
-    - cron: '35 13 1-7 * 5'
-  workflow_dispatch:  # 允许手动触发测试
+    # NFP 发布: 每月第一个周五 8:30 AM ET
+    # 8:35 ET = 12:35 UTC (夏令时 EDT) / 13:35 UTC (冬令时 EST)
+    # 注意: cron 里 day-of-month + day-of-week 是 OR 关系
+    # 所以只用 day-of-month 1-7，再在 shell 里判断是周五
+    - cron: '35 12 1-7 * *'
+    - cron: '35 13 1-7 * *'
+  workflow_dispatch:
+
+concurrency:
+  group: nfp-analysis
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Check if today is Friday
+        id: check_friday
+        run: |
+          # 手动触发跳过日期检查
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "手动触发，跳过周五检查"
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          # date +%u: 1=周一 ... 5=周五 ... 7=周日
+          DOW=$(date -u +%u)
+          if [ "$DOW" = "5" ]; then
+            echo "今天是周五，继续执行"
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "今天不是周五（DOW=$DOW），跳过"
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout
+        if: steps.check_friday.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        if: steps.check_friday.outputs.should_run == 'true'
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install requests
-      - run: python nfp_analysis.py
+          cache: 'pip'
+
+      - name: Install dependencies
+        if: steps.check_friday.outputs.should_run == 'true'
+        run: pip install requests
+
+      - name: Verify required secrets
+        if: steps.check_friday.outputs.should_run == 'true'
+        run: |
+          missing=()
+          [ -z "${{ secrets.BLS_API_KEY }}" ] && missing+=("BLS_API_KEY")
+          [ -z "${{ secrets.TELEGRAM_TOKEN }}" ] && missing+=("TELEGRAM_TOKEN")
+          [ -z "${{ secrets.TELEGRAM_CHAT_ID }}" ] && missing+=("TELEGRAM_CHAT_ID")
+          [ -z "${{ secrets.ANTHROPIC_API_KEY }}" ] && missing+=("ANTHROPIC_API_KEY")
+          [ -z "${{ secrets.PAT_TOKEN }}" ] && missing+=("PAT_TOKEN")
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "❌ 缺失 secrets: ${missing[*]}"
+            exit 1
+          fi
+          echo "✅ 所有 secrets 已配置"
+
+      - name: Run NFP analysis
+        if: steps.check_friday.outputs.should_run == 'true'
+        run: python nfp_analysis.py
         env:
           BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
           LAST_NFP_STATUS: ${{ vars.LAST_NFP_STATUS }}
           LAST_CPI_STATUS: ${{ vars.LAST_CPI_STATUS }}
+
+      - name: Notify on failure
+        if: failure() && steps.check_friday.outputs.should_run == 'true'
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
+            -d chat_id="$TELEGRAM_CHAT_ID" \
+            -d parse_mode=Markdown \
+            --data-urlencode "text=🚨 *NFP workflow 失败*
+查看日志: $RUN_URL" || true
