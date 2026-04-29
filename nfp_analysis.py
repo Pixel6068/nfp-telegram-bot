@@ -4,7 +4,7 @@ from datetime import datetime
 BLS_API_KEY = os.environ["BLS_API_KEY"]
 TELEGRAM_TOKEN = os.environ["TELEGRAM_TOKEN"]
 TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
-GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
+ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 
 def get_nfp_data():
     url = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
@@ -15,7 +15,7 @@ def get_nfp_data():
         "registrationkey": BLS_API_KEY
     }
     r = requests.post(url, json=payload)
-    print("BLS 返回：", r.json())
+    print("BLS 返回状态：", r.json()["status"])
     series = r.json()["Results"]["series"][0]["data"]
     latest = series[0]
     prev = series[1]
@@ -26,25 +26,33 @@ def get_nfp_data():
         "change": change
     }
 
-def gemini_interpret(data):
-    prompt = f"""
-    美国非农就业数据刚刚公布：
-    - 报告期：{data['period']}
-    - 非农就业人数：{data['value']} 千人
-    - 环比变化：{data['change']} 千人
-    
-    请用中文从以下角度简洁解读（300字内）：
-    1. 数据强弱判断
-    2. 对美联储货币政策的影响
-    3. 对美股、美元指数的短期影响方向
-    """
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
-    r = requests.post(url, json={"contents": [{"parts": [{"text": prompt}]}]})
+def claude_interpret(data):
+    prompt = f"""美国非农就业数据刚刚公布：
+- 报告期：{data['period']}
+- 非农就业人数：{data['value']} 千人
+- 环比变化：{data['change']} 千人
+
+请用中文从以下角度简洁解读（300字内）：
+1. 数据强弱判断
+2. 对美联储货币政策的影响
+3. 对美股、美元指数的短期影响方向"""
+
+    headers = {
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json"
+    }
+    payload = {
+        "model": "claude-opus-4-5",
+        "max_tokens": 1024,
+        "messages": [{"role": "user", "content": prompt}]
+    }
+    r = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=payload)
     result = r.json()
-    print("Gemini 返回：", result)
-    if "candidates" not in result:
-        raise Exception(f"Gemini API 错误: {result.get('error', result)}")
-    return result["candidates"][0]["content"]["parts"][0]["text"]
+    print("Claude 返回：", result)
+    if "content" not in result:
+        raise Exception(f"Claude API 错误: {result}")
+    return result["content"][0]["text"]
 
 def send_telegram(text):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -59,8 +67,8 @@ if __name__ == "__main__":
     print("开始运行...")
     data = get_nfp_data()
     print("非农数据：", data)
-    analysis = gemini_interpret(data)
-    print("Gemini 解读完成")
+    analysis = claude_interpret(data)
+    print("Claude 解读完成")
     msg = f"📊 *美国非农就业数据解读*\n\n{analysis}"
     send_telegram(msg)
     print("推送成功")
