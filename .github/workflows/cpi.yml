@@ -26,7 +26,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
           LAST_CPI_STATUS: ${{ vars.LAST_CPI_STATUS }}
       - name: Save result to workspace
-        run: python3 push_result.py > cpi_output_${{ github.run_id }}.txt
+        run: python3 push_result.py cpi > cpi_output_${{ github.run_id }}.txt
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
       - name: Upload artifact
