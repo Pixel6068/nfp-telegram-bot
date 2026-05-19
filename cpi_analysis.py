@@ -184,9 +184,9 @@ def main() -> int:
 
         # === AutoClaw: 保存结果供解读 ===
         result = {"type":"cpi","time":datetime.now().isoformat(),"data":data,"analysis":analysis}
-        with open(f"cpi_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json","w") as f:
+        with open("cpi_result.json","w") as f:
             json.dump(result,f,ensure_ascii=False)
-        print(f"✅ 结果已保存")
+        print(f"✅ 结果已保存到 cpi_result.json")
         # ===============================
 
         print("\n✅ 全部完成")
