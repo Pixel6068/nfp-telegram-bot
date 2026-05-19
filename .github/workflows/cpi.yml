@@ -4,6 +4,8 @@ on:
     - cron: '35 12 1-7 * *'
     - cron: '35 13 1-7 * *'
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   analyze:
     runs-on: ubuntu-latest
