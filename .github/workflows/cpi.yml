@@ -14,30 +14,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-        cache: 'pip'
-    - run: pip install -r requirements.txt
-    - run: python nfp_analysis.py
-      env:
-        BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
-        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
-        LAST_NFP_STATUS: ${{ vars.LAST_NFP_STATUS }}
-        LAST_CPI_STATUS: ${{ vars.LAST_CPI_STATUS }}
-    - name: Push to AutoClaw
-      run: |
-        python3 -c "
-import json,base64
-d=open('cpi_result.json','rb').read()
-print(json.dumps({'message':'nfp ${{ github.run_id }}','content':base64.b64encode(d).decode()}))
-" > /tmp/payload.json
-        curl -s -X PUT "https://api.github.com/repos/Pixel6068/autoclaw-inbox/contents/data/cpi_${{ github.run_id }}.json"           -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}"           -H "Accept: application/vnd.github+json"           -H "Content-Type: application/json"           -d @/tmp/payload.json
-    - name: Notify on failure
-      if: failure()
-      run: |
-        curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" -d parse_mode=Markdown --data-urlencode "text=Failed" || true
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip install -r requirements.txt
+      - run: python nfp_analysis.py
+        env:
+          BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          LAST_NFP_STATUS: ${{ vars.LAST_NFP_STATUS }}
+          LAST_CPI_STATUS: ${{ vars.LAST_CPI_STATUS }}
+      - name: Push to AutoClaw
+        run: |
+          python3 -c "import json,base64;d=open('cpi_result.json','rb').read();print(json.dumps({'message':'nfp','content':base64.b64encode(d).decode()}))" > /tmp/payload.json
+          curl -sf -X PUT "https://api.github.com/repos/Pixel6068/autoclaw-inbox/contents/data/cpi_${{ github.run_id }}.json" -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}" -H "Accept: application/vnd.github+json" -H "Content-Type: application/json" -d @/tmp/payload.json || echo "push skipped"
+      - name: Notify on failure
+        if: failure()
+        run: |
+          curl -sf -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" -d parse_mode=Markdown --data-urlencode "text=Failed" || true
