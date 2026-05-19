@@ -217,9 +217,9 @@ def main() -> int:
 
         # === AutoClaw: 保存结果供解读 ===
         result = {"type":"nfp","time":datetime.now().isoformat(),"data":d,"analysis":analysis}
-        with open(f"nfp_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json","w") as f:
+        with open("nfp_result.json","w") as f:
             json.dump(result,f,ensure_ascii=False)
-        print(f"✅ 结果已保存")
+        print(f"✅ 结果已保存到 nfp_result.json")
         # ===============================
 
         print("\n✅ 全部完成")
