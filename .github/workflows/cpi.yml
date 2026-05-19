@@ -47,7 +47,7 @@ jobs:
       env:
         PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
       run: |
-        git clone https://oauth2:${PAT_TOKEN}@github.com/Pixel6068/autoclaw-inbox.git /tmp/inbox
+        git clone https://x-access-token:${PAT_TOKEN}@github.com/Pixel6068/autoclaw-inbox.git /tmp/inbox
         cp cpi_*.json /tmp/inbox/data/ 2>/dev/null || true
         cd /tmp/inbox && git config user.email "bot@local" && git config user.name "Bot"
         git add data/ && git commit -m "cpi ${{ github.run_id }}" || true && git push
