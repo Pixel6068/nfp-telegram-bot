@@ -4,11 +4,6 @@ on:
     - cron: '35 12 1-7 * *'
     - cron: '35 13 1-7 * *'
   workflow_dispatch:
-concurrency:
-  group: cpi-analysis
-  cancel-in-progress: false
-permissions:
-  contents: write
 jobs:
   analyze:
     runs-on: ubuntu-latest
@@ -27,13 +22,12 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
-          LAST_NFP_STATUS: ${{ vars.LAST_NFP_STATUS }}
           LAST_CPI_STATUS: ${{ vars.LAST_CPI_STATUS }}
-      - name: Push to AutoClaw
-        run: python3 push_result.py cpi
-        env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
-      - name: Notify on failure
-        if: failure() && github.event_name != 'workflow_dispatch'
-        run: |
-          curl -sf -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" -d parse_mode=Markdown --data-urlencode "text=Failed" || true
+          LAST_CPI_STATUS: ${{ vars.LAST_CPI_STATUS }}
+      - name: Save result to workspace
+        run: python3 push_result.py > cpi_output_${{ github.run_id }}.txt
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cpi-result
+          path: cpi_*.txt
