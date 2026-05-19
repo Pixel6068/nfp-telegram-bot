@@ -1,8 +1,8 @@
 name: NFP Analysis
 on:
   schedule:
-  - cron: '35 12 1-7 * *'
-  - cron: '35 13 1-7 * *'
+    - cron: '35 12 1-7 * *'
+    - cron: '35 13 1-7 * *'
   workflow_dispatch:
 concurrency:
   group: nfp-analysis
@@ -27,31 +27,13 @@ jobs:
         else
           echo "should_run=false" >> $GITHUB_OUTPUT
         fi
-    - name: Checkout
-      if: steps.check_friday.outputs.should_run == 'true'
-      uses: actions/checkout@v4
-    - name: Setup Python
-      if: steps.check_friday.outputs.should_run == 'true'
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         cache: 'pip'
-    - name: Install dependencies
-      if: steps.check_friday.outputs.should_run == 'true'
-      run: pip install -r requirements.txt
-    - name: Verify required secrets
-      if: steps.check_friday.outputs.should_run == 'true'
-      run: |
-        missing=()
-        [ -z "${{ secrets.BLS_API_KEY }}" ] && missing+=("BLS_API_KEY")
-        [ -z "${{ secrets.TELEGRAM_TOKEN }}" ] && missing+=("TELEGRAM_TOKEN")
-        [ -z "${{ secrets.TELEGRAM_CHAT_ID }}" ] && missing+=("TELEGRAM_CHAT_ID")
-        [ -z "${{ secrets.ANTHROPIC_API_KEY }}" ] && missing+=("ANTHROPIC_API_KEY")
-        [ -z "${{ secrets.PAT_TOKEN }}" ] && missing+=("PAT_TOKEN")
-        if [ ${#missing[@]} -ne 0 ]; then echo "Missing: ${missing[*]}"; exit 1; fi
-    - name: Run NFP analysis
-      if: steps.check_friday.outputs.should_run == 'true'
-      run: python nfp_analysis.py
+    - run: pip install -r requirements.txt
+    - run: python nfp_analysis.py
       env:
         BLS_API_KEY: ${{ secrets.BLS_API_KEY }}
         TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
@@ -60,30 +42,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         LAST_NFP_STATUS: ${{ vars.LAST_NFP_STATUS }}
         LAST_CPI_STATUS: ${{ vars.LAST_CPI_STATUS }}
-- name: Push results to AutoClaw
-      if: success()
-      run: |
-        cat > /tmp/payload.json <<'JSONEOF'
-        {
-          "type": "nfp",
-          "run_id": "${{ github.run_id }}",
-          "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        }
-JSONEOF
-        # Use GitHub API to push the result file
-        # First, find the result JSON file
+    - run: |
         for f in nfp_*.json; do
-          [ -f "$f" ] && cat "$f" > /tmp/payload.json
+          [ -f "$f" ] || continue
+          curl -s -X PUT "https://api.github.com/repos/Pixel6068/autoclaw-inbox/contents/data/nfp_${{ github.run_id }}.json"             -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}"             -H "Accept: application/vnd.github+json"             -d "$(python3 -c "import json; d=open('$f').read(); import base64; print(json.dumps({'message':'nfp ${{ github.run_id }}','content':base64.b64encode(d.encode()).decode()}))")" || true
         done
-        # Encode and push via API
-        PAYLOAD=$(base64 -w0 < /tmp/payload.json)
-        curl -s -X PUT "https://api.github.com/repos/Pixel6068/autoclaw-inbox/contents/data/nfp_${{ github.run_id }}.json"           -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}"           -H "Accept: application/vnd.github+json"           -d "{"message":"nfp ${{ github.run_id }}","content":"${PAYLOAD}"}" || true
-
-    - name: Notify on failure
-      if: failure() && steps.check_friday.outputs.should_run == 'true'
-      env:
-        TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-      run: |
-        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" -d chat_id="${TELEGRAM_CHAT_ID}" -d parse_mode=Markdown --data-urlencode "text=🚨 NFP workflow failed | Log: ${RUN_URL}" || true
