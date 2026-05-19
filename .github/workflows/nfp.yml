@@ -26,6 +26,8 @@ jobs:
           LAST_CPI_STATUS: ${{ vars.LAST_CPI_STATUS }}
       - name: Save result to workspace
         run: python3 push_result.py > nfp_output_${{ github.run_id }}.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
