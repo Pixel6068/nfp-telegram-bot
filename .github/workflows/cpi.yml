@@ -42,15 +42,25 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         LAST_NFP_STATUS: ${{ vars.LAST_NFP_STATUS }}
         LAST_CPI_STATUS: ${{ vars.LAST_CPI_STATUS }}
-    - name: Push results to AutoClaw
+- name: Push results to AutoClaw
       if: success()
-      env:
-        PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
       run: |
-        git clone https://x-access-token:${PAT_TOKEN}@github.com/Pixel6068/autoclaw-inbox.git /tmp/inbox
-        cp cpi_*.json /tmp/inbox/data/ 2>/dev/null || true
-        cd /tmp/inbox && git config user.email "bot@local" && git config user.name "Bot"
-        git add data/ && git commit -m "cpi ${{ github.run_id }}" || true && git push
+        cat > /tmp/payload.json <<'JSONEOF'
+        {
+          "type": "cpi",
+          "run_id": "${{ github.run_id }}",
+          "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        }
+JSONEOF
+        # Use GitHub API to push the result file
+        # First, find the result JSON file
+        for f in cpi_*.json; do
+          [ -f "$f" ] && cat "$f" > /tmp/payload.json
+        done
+        # Encode and push via API
+        PAYLOAD=$(base64 -w0 < /tmp/payload.json)
+        curl -s -X PUT "https://api.github.com/repos/Pixel6068/autoclaw-inbox/contents/data/cpi_${{ github.run_id }}.json"           -H "Authorization: Bearer ${{ secrets.PAT_TOKEN }}"           -H "Accept: application/vnd.github+json"           -d "{"message":"nfp ${{ github.run_id }}","content":"${PAYLOAD}"}" || true
+
     - name: Notify on failure
       if: failure()
       env:
