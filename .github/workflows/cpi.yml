@@ -31,7 +31,7 @@ jobs:
         LAST_CPI_STATUS: ${{ vars.LAST_CPI_STATUS }}
     - name: Push to AutoClaw
       run: |
-        gh api -X PUT repos/Pixel6068/autoclaw-inbox/contents/data/cpi_${{ github.run_id }}.json           -f message="nfp ${{ github.run_id }}"           -f content="$(base64 < cpi_result.json)"
+        gh api -X PUT repos/Pixel6068/autoclaw-inbox/contents/data/cpi_${{ github.run_id }}.json           -f message="nfp ${{ github.run_id }}"           -f content="$(base64 -w0 < cpi_result.json)"
       env:
         GH_TOKEN: ${{ secrets.PAT_TOKEN }}
     - name: Notify on failure
