@@ -1,4 +1,4 @@
-import os, json, base64, sys, urllib.request
+import os, json, base64, sys, requests
 
 token = os.environ["PAT_TOKEN"]
 t = sys.argv[1] if len(sys.argv) > 1 else "nfp"
@@ -13,18 +13,12 @@ if not files:
 with open(files[0]) as f:
     content = f.read()
 
-data = json.dumps({"message": f"{t} result", "content": base64.b64encode(content.encode()).decode()}).encode()
+data = json.dumps({"message": f"{t} result", "content": base64.b64encode(content.encode()).decode()})
 url = f"https://api.github.com/repos/Pixel6068/autoclaw-inbox/contents/data/{t}_{os.environ.get('GITHUB_RUN_ID','0')}.json"
 print(f"Pushing to: {url}")
 
-req = urllib.request.Request(url, data=data, method="PUT")
-req.add_header("Authorization", f"Bearer {token}")
-req.add_header("Accept", "application/vnd.github+json")
-req.add_header("Content-Type", "application/json")
-try:
-    resp = urllib.request.urlopen(req)
-    print(f"OK: {resp.status}")
-except Exception as e:
-    print(f"Failed: {e}")
-    if hasattr(e, 'read'):
-        print(e.read().decode()[:300])
+r = requests.put(url, json=json.loads(data), headers={
+    "Authorization": f"Bearer {token}",
+    "Accept": "application/vnd.github+json"
+})
+print(f"HTTP {r.status_code}: {r.json().get('content',{}).get('name','ok') if r.ok else r.text[:200]}")
